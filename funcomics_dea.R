@@ -17,8 +17,32 @@ source("visiumtools/differential_test.R")
 source("visiumtools/misty_pipelines.R")
 source("visiumtools/misty_utils.R")
 
-sample_ids = set_names(c("V19S23-097_A1","V19S23-097_B1",
-                         "V19S23-097_C1", "V19S23-097_D1"))
+sample_ids = set_names(c("V19S23-097_A1","V19S23-097_B1"))
+
+
+# Fix dea results
+
+for(slide in sample_ids){
+  
+  print(slide)
+  
+  dea_file = sprintf("results/single_slide/%s/%s_diff_features_ldvgann.rds",
+                     slide,slide)
+  
+  dea_res = readRDS(dea_file)
+  
+  dea_res_fixed = lapply(dea_res,function(x){
+    
+    new_res = x %>% dplyr::mutate(cluster = as.numeric(as.character(cluster))) %>%
+      arrange(cluster,p_val_adj)
+    
+    return(new_res)
+      
+  })
+  
+  saveRDS(dea_res_fixed, file = dea_file)
+  
+}
 
 
 # Plot general features
@@ -59,10 +83,10 @@ for(slide in sample_ids){
   
   print(slide)
   
-  dea_file = sprintf("results/single_slide/%s/%s_diff_features.rds",
+  dea_file = sprintf("results/single_slide/%s/%s_diff_features_ldvgann.rds",
                      slide,slide)
   
-  dea_excel = sprintf("results/single_slide/%s/%s_diff_features.xlsx",
+  dea_excel = sprintf("results/single_slide/%s/%s_diff_features_ldvgann.xlsx",
                      slide,slide)
   
   dea_res = readRDS(dea_file)
@@ -83,12 +107,12 @@ for(slide in sample_ids){
   
   visium_slide = readRDS(slide_file)
   
-  dea_file = sprintf("results/single_slide/%s/%s_diff_features.rds",
+  dea_file = sprintf("results/single_slide/%s/%s_diff_features_ldvgann.rds",
                      slide,slide)
   
   dea_res = readRDS(dea_file)
   
-  dea_plots = sprintf("results/single_slide/%s/%s_diff_features_dplots.pdf",
+  dea_plots = sprintf("results/single_slide/%s/%s_diff_features_dplots_ldvgann.pdf",
                       slide,slide)
   
   dot_plots = get_dot_list(visium_slide = visium_slide,
@@ -103,3 +127,6 @@ for(slide in sample_ids){
   dev.off()
   
 }
+
+
+
