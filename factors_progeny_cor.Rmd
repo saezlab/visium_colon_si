@@ -1,0 +1,143 @@
+---
+title: "Correlation of progeny with factors"
+author: "Ricardo Ramirez"
+date: "3/22/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(Seurat)
+library(corrplot)
+library(ComplexHeatmap)
+```
+
+```{r}
+#' Performs hierarchical clustering to a correlation matrix
+#' @param cor_mat_feat_factor: correlation matrix between factors and features
+get_order = function(cor_mat_feat_factor){
+  cor_factors = cor(cor_mat_feat_factor)
+  clust_factors = hclust(as.dist(1-cor_factors))
+  
+  cor_feats = cor(t(cor_mat_feat_factor))
+  clust_feats = hclust(as.dist(1-cor_feats))
+  
+  return(list("factors" = clust_factors$labels[clust_factors$order],
+              "features" = clust_feats$labels[clust_feats$order]))
+}
+```
+
+```{r}
+# Slide 1 is A, slide 2 is B
+all_samples <- read.table(file = "./markers/NMF_Colon_combined.tsv",
+                          sep = "\t",
+                          header = T,
+                          row.names = 1)
+
+A1_combined_factors <- all_samples[grepl("1_1",rownames(all_samples)),]
+rownames(A1_combined_factors) <- map_chr(strsplit(rownames(A1_combined_factors), split = "-"),
+                                         ~ .x[[1]])
+
+B1_combined_factors <- all_samples[grepl("1_2",rownames(all_samples)),]
+rownames(B1_combined_factors) <- map_chr(strsplit(rownames(B1_combined_factors), split = "-"),
+                                         ~ .x[[1]])
+
+# Create the tibble with all useful data:
+# -Factor scores, progeny scores
+
+factor_scores <- list("V19S23-097_A1" = A1_combined_factors,
+                      "V19S23-097_B1" = B1_combined_factors) %>%
+  enframe(name = "slide",
+          value = "f_scores") %>%
+  dplyr::mutate(progeny_scores = map(slide, function(s) {
+    
+    slide_file <- sprintf("./results/single_slide/%s/%s.rds",
+                       s,s)
+    
+    visium_slide <- readRDS(slide_file)
+    
+    PROGENy_mat <- t(as.matrix(visium_slide@assays$progeny@data))
+    rownames(PROGENy_mat) <- map_chr(strsplit(rownames(PROGENy_mat), split = "-"),
+                                         ~ .x[[1]])
+    return(PROGENy_mat)
+  }))
+
+# Sort matrices so that they have the same barcode
+
+factor_scores <- factor_scores %>%
+  group_by(slide) %>%
+  dplyr::mutate(funcomics_cor = map2(f_scores, progeny_scores, function(x, y) {
+    
+    combined_cor_path = cor(y[rownames(x),], x)
+    
+  }))
+```
+
+```{r}
+# Original plots ----------------------------------------
+walk(factor_scores$funcomics_cor, function(single_cor_path) {
+    
+    corrplot(single_cor_path[get_order(single_cor_path)$features,
+                                get_order(single_cor_path)$factors],
+                method = "color",is.corr = F,
+                tl.col = "black",title = "individual_factors",
+           col=colorRampPalette(c("darkblue","white","darkred"))(100))
+    
+  })
+```
+
+```{r}
+# New plots 
+# This is the one I defined previously
+get_order = function(cor_mat_feat_factor){
+  cor_factors = cor(cor_mat_feat_factor)
+  clust_factors = hclust(as.dist(1-cor_factors))
+  
+  cor_feats = cor(t(cor_mat_feat_factor))
+  clust_feats = hclust(as.dist(1-cor_feats))
+  return(list("factors" = clust_factors,
+              "features" = clust_feats))
+}
+
+```
+
+# Day 0
+```{r}
+A1_order <- get_order(factor_scores$funcomics_cor[[1]])
+
+A1_hmap <- Heatmap(factor_scores$funcomics_cor[[1]],
+        cluster_rows = A1_order$features,
+        cluster_columns = A1_order$factors,
+        name = "Pearson")
+
+draw(A1_hmap)
+
+pdf(file = "./results/factors_annotation/hclust_A1_progeny_factors.pdf", width = 7, height = 4)
+
+draw(A1_hmap)
+
+dev.off()
+```
+
+# Day 14
+
+```{r}
+B1_order <- get_order(factor_scores$funcomics_cor[[2]])
+
+B1_hmap <- Heatmap(factor_scores$funcomics_cor[[2]],
+        cluster_rows = B1_order$features,
+        cluster_columns = B1_order$factors,
+        name = "Pearson")
+
+draw(B1_hmap)
+
+pdf(file = "./results/factors_annotation/hclust_B1_progeny_factors.pdf", width = 7, height = 4)
+
+draw(B1_hmap)
+
+dev.off()
+```
+
+
