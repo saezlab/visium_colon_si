@@ -84,17 +84,15 @@ for(slide in sample_ids){
                                  top = 1000,
                                  marker_df = NULL,
                                  verbose = FALSE)
-    
+    # Perform differential expression analysis of features in all assays
+    # Warning: By default I am running Wilcox tests, because they seem
+    # to work good enough for characterization purposes
     differential_features = find_allfeat(visium_slide = visium_slide,
                                          assays_collection = c("SCT",
                                                                "dorothea",
                                                                "progeny"))
     
   }
-  
-  # Perform differential expression analysis of features in all assays
-  # Warning: By default I am running Wilcox tests, because they seem
-  # to work good enough for characterization purposes
   saveRDS(visium_slide,
           file = slide_out)
   
